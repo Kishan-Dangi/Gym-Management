@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Dashboard</title>
+    <link rel="stylesheet" href="member.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 id="welcomeMessage">Welcome to Your Dashboard</h1>
+            <p id="userEmail"></p> <!-- Display logged-in email -->
+            <button id="logoutBtn" class="logout-btn">Logout</button> <!-- Logout button -->
+        </header>
+
+        <!-- Tabs Navigation -->
+        <div class="tabs">
+            <button class="tab-button" id="billsTab">My Bills</button>
+            <button class="tab-button" id="dietTab">My Diet</button>
+            <button class="tab-button" id="notificationsTab">My Notifications</button>
+            <button class="tab-button" id="supplementsTab">My Supplements</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div id="bills" class="tab-content"></div>
+        <div id="diet" class="tab-content"></div>
+        <div id="notifications" class="tab-content"></div>
+        <div id="supplements" class="tab-content"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyATniSLhkB362WSXSSHLA-GIL86NGLw3Uw",
+            authDomain: "kd-fitness-81a25.firebaseapp.com",
+            databaseURL: "https://kd-fitness-81a25-default-rtdb.firebaseio.com",
+            projectId: "kd-fitness-81a25",
+            storageBucket: "kd-fitness-81a25.firebasestorage.app",
+            messagingSenderId: "670008631411",
+            appId: "1:670008631411:web:e98b9fc9a494aa104c8a06",
+            measurementId: "G-T5Y9E7R073"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        // Check if user is logged in
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                const userEmail = user.email;
+                document.getElementById('userEmail').textContent = `Logged in as: ${userEmail}`;
+                document.getElementById('welcomeMessage').textContent = `Welcome, ${userEmail}!`;
+                getBillsData(userEmail);
+                getDietData(userEmail);
+                getNotificationsData(userEmail);
+                getSupplementsData(userEmail);
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        // Logout functionality
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            auth.signOut().then(() => {
+                window.location.href = 'index.html'; // Redirect to login page
+            }).catch((error) => {
+                console.error('Error during logout:', error);
+            });
+        });
+
+        // Function to fetch and display bills data
+        function getBillsData(email) {
+    const billsRef = database.ref('users/admin/created-bills');
+    billsRef.once('value', snapshot => {
+        const billsContainer = document.getElementById('bills');
+        billsContainer.innerHTML = "<h3>My Bills</h3>";
+        let found = false;
+
+        snapshot.forEach(childSnapshot => {
+            const bill = childSnapshot.val();
+            if (bill.memberEmail === email) {
+                found = true;
+                const billElement = document.createElement('div');
+                billElement.innerHTML = `
+                    <p><strong>Bill for ${bill.memberEmail}</strong></p>
+                    <p><strong>Amount:</strong> ${bill.feePaid ? bill.feePaid : "N/A"}</p> <!-- Updated to use feePaid -->
+                    <p><strong>Date Created:</strong> ${bill.dateCreated ? bill.dateCreated : "N/A"}</p>
+                    <p><strong>Joining Date:</strong> ${bill.joiningDate ? bill.joiningDate : "N/A"}</p>
+                    <p><strong>Membership Type:</strong> ${bill.membershipType ? bill.membershipType : "N/A"}</p>
+                `;
+                billsContainer.appendChild(billElement);
+            }
+        });
+
+        if (!found) {
+            billsContainer.innerHTML += "<p>No bills found.</p>";
+        }
+    });
+}
+
+        // Function to fetch and display diet data
+        function getDietData(email) {
+            const dietRef = database.ref('users/admin/diet');
+            dietRef.once('value', snapshot => {
+                const dietContainer = document.getElementById('diet');
+                dietContainer.innerHTML = "<h3>My Diet</h3>";
+                let found = false;
+
+                snapshot.forEach(childSnapshot => {
+                    const diet = childSnapshot.val();
+                    if (diet.userEmail === email) {
+                        found = true;
+                        const dietElement = document.createElement('div');
+                        dietElement.textContent = `
+                            Diet for ${diet.userEmail}: 
+                            Breakfast: ${diet.breakfast}, 
+                            Lunch: ${diet.lunch}, 
+                            Dinner: ${diet.dinner}, 
+                            Snacks: ${diet.snacks}
+                        `;
+                        dietContainer.appendChild(dietElement);
+                    }
+                });
+
+                if (!found) {
+                    dietContainer.innerHTML += "<p>No diet found.</p>";
+                }
+            });
+        }
+
+        // Function to fetch and display notifications data
+        function getNotificationsData(email) {
+            const notificationsRef = database.ref('users/admin/notifications-sent');
+            notificationsRef.once('value', snapshot => {
+                const notificationsContainer = document.getElementById('notifications');
+                notificationsContainer.innerHTML = "<h3>My Notifications</h3>";
+                let found = false;
+
+                snapshot.forEach(childSnapshot => {
+                    const notification = childSnapshot.val();
+                    if (notification.email === email) {
+                        found = true;
+                        const notificationElement = document.createElement('div');
+                        notificationElement.textContent = `Notification for ${notification.email}: ${notification.message}`;
+                        notificationsContainer.appendChild(notificationElement);
+                    }
+                });
+
+                if (!found) {
+                    notificationsContainer.innerHTML += "<p>No notifications found.</p>";
+                }
+            });
+        }
+
+        // Function to fetch and display supplements data
+        function getSupplementsData(email) {
+            const supplementsRef = database.ref('users/admin/supplements');
+            supplementsRef.once('value', snapshot => {
+                const supplementsContainer = document.getElementById('supplements');
+                supplementsContainer.innerHTML = "<h3>My Supplements</h3>";
+                let found = false;
+
+                snapshot.forEach(childSnapshot => {
+                    const supplement = childSnapshot.val();
+                    if (supplement.email === email) {
+                        found = true;
+                        const supplementElement = document.createElement('div');
+                        supplementElement.innerHTML = `
+                            <p><strong>Supplement for ${supplement.email}</strong></p>
+                            <p><strong>Supplement Name:</strong> ${supplement.supplementName}</p>
+                            <p><strong>Quantity:</strong> ${supplement.quantity}</p>
+                            <p><strong>Total Price:</strong> ${supplement.totalPrice ? supplement.totalPrice : "N/A"}</p>
+                            <p><strong>Timestamp:</strong> ${supplement.timestamp ? supplement.timestamp : "N/A"}</p>
+                        `;
+                        supplementsContainer.appendChild(supplementElement);
+                    }
+                });
+
+                if (!found) {
+                    supplementsContainer.innerHTML += "<p>No supplements found.</p>";
+                }
+            });
+        }
+
+        // Tab functionality
+        const tabs = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Hide all tab contents
+                tabContents.forEach(content => content.style.display = 'none');
+
+                // Remove active class from all tabs
+                tabs.forEach(t => t.classList.remove('active'));
+
+                // Show the clicked tab content and add active class to the clicked tab
+                const contentId = tab.id.replace('Tab', '');
+                document.getElementById(contentId).style.display = 'block';
+                tab.classList.add('active');
+            });
+        });
+
+        // Show the first tab by default
+        document.getElementById('billsTab').click();
+    </script>
+</body>
+</html>

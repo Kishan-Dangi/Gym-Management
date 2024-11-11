@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Notifications</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        input, button, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #searchResults {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        #searchResults div {
+            padding: 8px;
+            background-color: #f1f1f1;
+            margin-bottom: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        #searchResults div:hover {
+            background-color: #ddd;
+        }
+
+        #selectedMembers div {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background-color: #e8f5e9;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+
+        .remove-btn {
+            color: red;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+
+        #message {
+            margin-top: 20px;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .success {
+            color: green;
+            background-color: #e8f5e9;
+        }
+
+        .error {
+            color: red;
+            background-color: #ffebee;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Send Notifications</h1>
+
+        <!-- Search members -->
+        <input type="text" id="searchMember" placeholder="Search for members by name" oninput="searchMember()">
+        
+        <!-- Display search results -->
+        <div id="searchResults"></div>
+
+        <!-- Selected members list -->
+        <h3>Selected Members:</h3>
+        <div id="selectedMembers"></div>
+
+        <!-- Enter message -->
+        <textarea id="notificationMessage" placeholder="Enter your message" rows="5"></textarea>
+
+        <button onclick="sendNotification()">Send Notification</button>
+
+        <p id="message"></p>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyATniSLhkB362WSXSSHLA-GIL86NGLw3Uw",
+            authDomain: "kd-fitness-81a25.firebaseapp.com",
+            databaseURL: "https://kd-fitness-81a25-default-rtdb.firebaseio.com", // Use Realtime Database URL
+            projectId: "kd-fitness-81a25",
+            storageBucket: "kd-fitness-81a25.appspot.com",
+            messagingSenderId: "670008631411",
+            appId: "1:670008631411:web:e98b9fc9a494aa104c8a06",
+            measurementId: "G-T5Y9E7R073"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const auth = firebase.auth();
+
+        // Check authentication state
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // Check if user is admin
+                db.ref("users/admin/" + user.uid).once("value").then((snapshot) => {
+                    if (!snapshot.exists() || snapshot.val().userType !== "admin") { // Use userType here
+                        window.location.href = "../index.html"; // Redirect non-admin users
+                    }
+                }).catch((error) => {
+                    console.error("Error checking user role:", error);
+                    window.location.href = "../index.html"; // Redirect on error
+                });
+            } else {
+                window.location.href = "../index.html"; // Redirect if no user is logged in
+            }
+        });
+
+        let selectedMembers = new Map(); // Store selected members with their names
+
+        // Search member function
+        function searchMember() {
+            const query = document.getElementById('searchMember').value;
+            const resultsDiv = document.getElementById('searchResults');
+
+            if (query.length > 2) {
+                resultsDiv.innerHTML = '';
+                db.ref('users/admin/gym-members')
+                    .orderByChild('name')
+                    .startAt(query)
+                    .endAt(query + '\uf8ff')
+                    .limitToFirst(5)
+                    .once("value")
+                    .then((snapshot) => {
+                        snapshot.forEach((childSnapshot) => {
+                            const member = childSnapshot.val();
+                            const memberId = childSnapshot.key;
+                            if (!selectedMembers.has(memberId)) {
+                                const div = document.createElement('div');
+                                div.textContent = member.name;
+                                div.onclick = () => {
+                                    addMemberToSelection(memberId, member);
+                                    resultsDiv.innerHTML = '';
+                                    document.getElementById('searchMember').value = '';
+                                };
+                                resultsDiv.appendChild(div);
+                            }
+                        });
+                    })
+                    .catch((error) => {
+                        showMessage("Error searching members: " + error.message, "error");
+                    });
+            } else {
+                resultsDiv.innerHTML = '';
+            }
+        }
+
+        // Add member to the selected members list
+        function addMemberToSelection(memberId, member) {
+            if (!selectedMembers.has(memberId)) {
+                selectedMembers.set(memberId, member);
+                updateSelectedMembersList();
+            }
+        }
+
+        // Remove member from selection
+        function removeMember(memberId) {
+            selectedMembers.delete(memberId);
+            updateSelectedMembersList();
+        }
+
+        // Update the selected members display
+        function updateSelectedMembersList() {
+            const container = document.getElementById('selectedMembers');
+            container.innerHTML = '';
+
+            selectedMembers.forEach((member, id) => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    ${member.name}
+                    <span class="remove-btn" onclick="removeMember('${id}')">&times;</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Show message function
+        function showMessage(text, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = type;
+        }
+
+        // Send notification to selected members
+        function sendNotification() {
+            const message = document.getElementById('notificationMessage').value.trim();
+            
+            if (!message) {
+                showMessage("Please enter a message!", "error");
+                return;
+            }
+
+            if (selectedMembers.size === 0) {
+                showMessage("Please select at least one member!", "error");
+                return;
+            }
+
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+                showMessage("You must be logged in to send notifications!", "error");
+                return;
+            }
+
+            const notificationsRef = db.ref('users/admin/notifications-sent');
+            const notificationsBatch = [];
+            
+            selectedMembers.forEach((member, memberId) => {
+                const notificationData = {
+                    memberId: memberId,
+                    memberName: member.name,
+                    message: message,
+                    sentAt: firebase.database.ServerValue.TIMESTAMP,
+                    sentBy: currentUser.uid,
+                    status: 'sent',
+                    type: 'general'
+                };
+
+                // Add to batch for sending notifications
+                const newNotificationRef = notificationsRef.push();
+                newNotificationRef.set(notificationData);
+            });
+
+            showMessage(`Notification sent successfully to ${selectedMembers.size} member(s)!`, "success");
+            // Clear form
+            document.getElementById('notificationMessage').value = '';
+            selectedMembers.clear();
+            updateSelectedMembersList();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - KD Fitness</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+
+        .dashboard-container {
+            padding: 20px;
+        }
+
+        .header {
+            background: #1877f2;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logout-btn {
+            background: white;
+            color: #1877f2;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .tiles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .tile {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            text-decoration: none;
+            color: #333;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .tile:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .tile-icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: #1877f2;
+        }
+
+        .tile-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .tile-description {
+            font-size: 0.9rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>KD Fitness Admin Dashboard</h1>
+        <div class="user-info">
+            <span id="adminName">Admin</span>
+            <button class="logout-btn" onclick="handleLogout()">Logout</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <div class="tiles-grid">
+            <a href="admin-add-member.html" class="tile">
+                <div class="tile-icon">👥</div>
+                <div class="tile-title">Add Member</div>
+                <div class="tile-description">Register new gym members</div>
+            </a>
+
+            <a href="admin-update-member.html" class="tile">
+                <div class="tile-icon">📝</div>
+                <div class="tile-title">Update/Delete Members</div>
+                <div class="tile-description">Manage existing members</div>
+            </a>
+
+            <a href="admin-create-bill.html" class="tile">
+                <div class="tile-icon">💰</div>
+                <div class="tile-title">Create Bills</div>
+                <div class="tile-description">Generate member bills</div>
+            </a>
+
+            <a href="admin-assigned-packages.html" class="tile">
+                <div class="tile-icon">📦</div>
+                <div class="tile-title">Assign Fee Package</div>
+                <div class="tile-description">Manage member packages</div>
+            </a>
+
+            <a href="admin-notifications-sent.html" class="tile">
+                <div class="tile-icon">🔔</div>
+                <div class="tile-title">Monthly Notifications</div>
+                <div class="tile-description">Send payment reminders</div>
+            </a>
+
+            <a href="admin-report.html" class="tile">
+                <div class="tile-icon">📊</div>
+                <div class="tile-title">Export Report</div>
+                <div class="tile-description">Generate monthly reports</div>
+            </a>
+
+            <a href="admin-suppliments.html" class="tile">
+                <div class="tile-icon">💪</div>
+                <div class="tile-title">Supplement Store</div>
+                <div class="tile-description">Manage supplement inventory</div>
+            </a>
+
+            <a href="admin-diet.html" class="tile">
+                <div class="tile-icon">🥗</div>
+                <div class="tile-title">Diet Details</div>
+                <div class="tile-description">Manage member diets</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.1/firebase-auth-compat.js"></script>
+    
+    <script>
+        // Initialize Firebase with your config
+        const firebaseConfig = {
+            apiKey: "AIzaSyATniSLhkB362WSXSSHLA-GIL86NGLw3Uw",
+  authDomain: "kd-fitness-81a25.firebaseapp.com",
+  databaseURL: "https://kd-fitness-81a25-default-rtdb.firebaseio.com",
+  projectId: "kd-fitness-81a25",
+  storageBucket: "kd-fitness-81a25.firebasestorage.app",
+  messagingSenderId: "670008631411",
+  appId: "1:670008631411:web:e98b9fc9a494aa104c8a06",
+  measurementId: "G-T5Y9E7R073"
+            // Your Firebase config here (same as login page)
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // Handle logout
+        function handleLogout() {
+            auth.signOut().then(() => {
+                window.location.href = 'index.html';
+            }).catch((error) => {
+                console.error('Logout error:', error);
+            });
+        }
+
+        // Check authentication state
+        auth.onAuthStateChanged((user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Report Export</title>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+
+    <!-- SheetJS (for Excel export) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
+
+    <!-- jsPDF (for PDF export) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #loginContainer {
+            margin: 20px auto;
+            max-width: 300px;
+        }
+        .input-field {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+        }
+        #errorMessage {
+            color: red;
+            margin: 10px 0;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="loginContainer">
+        <h2>Login</h2>
+        <input type="email" id="email" placeholder="Email" class="input-field">
+        <input type="password" id="password" placeholder="Password" class="input-field">
+        <button onclick="login()">Login</button>
+        <div id="errorMessage"></div>
+    </div>
+
+    <div id="mainContainer" class="container hidden">
+        <h1>Export Member Report</h1>
+        <button onclick="logout()">Logout</button>
+        <br>
+        <button onclick="exportMemberReport()">Export as CSV</button>
+        <button onclick="exportMemberReportExcel()">Export as Excel</button>
+        <button onclick="exportMemberReportPDF()">Export as PDF</button>
+        
+        <h2>Member List</h2>
+        <table id="memberTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Membership Type</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Member data will be inserted here -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyATniSLhkB362WSXSSHLA-GIL86NGLw3Uw",
+            authDomain: "kd-fitness-81a25.firebaseapp.com",
+            databaseURL: "https://kd-fitness-81a25-default-rtdb.firebaseio.com",
+            projectId: "kd-fitness-81a25",
+            storageBucket: "kd-fitness-81a25.appspot.com",
+            messagingSenderId: "670008631411",
+            appId: "1:670008631411:web:e98b9fc9a494aa104c8a06",
+            measurementId: "G-T5Y9E7R073"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const auth = firebase.auth();
+
+        // Authentication state observer
+        auth.onAuthStateChanged((user) => {
+            const loginContainer = document.getElementById('loginContainer');
+            const mainContainer = document.getElementById('mainContainer');
+            const errorMessage = document.getElementById('errorMessage');
+
+            if (user) {
+                // User is signed in
+                loginContainer.classList.add('hidden');
+                mainContainer.classList.remove('hidden');
+                errorMessage.textContent = '';
+                displayMembers(); // Fetch and display member data when authenticated
+            } else {
+                // User is signed out
+                loginContainer.classList.remove('hidden');
+                mainContainer.classList.add('hidden');
+            }
+        });
+
+        // Login function
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('errorMessage');
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+            } catch (error) {
+                errorMessage.textContent = error.message;
+            }
+        }
+
+        // Logout function
+        function logout() {
+            auth.signOut();
+        }
+
+        // Function to fetch member data from Firebase Realtime Database
+        async function getMemberData() {
+            if (!auth.currentUser) {
+                console.error('User not authenticated');
+                throw new Error('User not authenticated');
+            }
+
+            try {
+                console.log('Fetching data from Firebase...');
+
+                // Fetch data from the Firebase Realtime Database
+                const snapshot = await db.ref('users/admin/gym-members').once('value');
+
+                // Log the snapshot data to see what we get from Firebase
+                const membersData = snapshot.val();
+                console.log('Data received from Firebase:', membersData);
+
+                // Check if data is available
+                if (!membersData) {
+                    console.log('No data found at users/admin/gym-members.');
+                    return [];
+                }
+
+                // Convert the object to an array
+                const membersArray = Object.values(membersData);
+                console.log('Converted data to array:', membersArray);
+
+                return membersArray;
+            } catch (error) {
+                console.error('Error fetching member data:', error);
+                throw error;  // Rethrow error to be caught later
+            }
+        }
+
+        // Function to display member data in a table
+        async function displayMembers() {
+            console.log('Displaying member data...');
+            try {
+                // Check if the user is authenticated before proceeding
+                if (!auth.currentUser) {
+                    console.error('User not authenticated');
+                    alert('You need to log in to see the members.');
+                    return;
+                }
+
+                // Call getMemberData to fetch member data
+                const membersData = await getMemberData();
+
+                if (membersData.length === 0) {
+                    console.log('No members found.');
+                    alert('No members found.');
+                    return;
+                }
+
+                // Get the table body to insert rows
+                const tableBody = document.getElementById("memberTable").getElementsByTagName("tbody")[0];
+                tableBody.innerHTML = "";  // Clear any existing rows
+
+                // Log the data we are about to display
+                console.log('Inserting member data into table:', membersData);
+
+                // Loop through the data and insert rows into the table
+                membersData.forEach(member => {
+                    console.log('Inserting member:', member);
+                    const row = tableBody.insertRow();
+
+                    // Insert member details into each row
+                    row.insertCell(0).innerText = member.name;
+                    row.insertCell(1).innerText = member.membershipType;
+                    row.insertCell(2).innerText = member.email;
+                    row.insertCell(3).innerText = member.phone;
+                });
+
+            } catch (error) {
+                console.error('Error displaying members:', error);
+                alert('Error displaying members.');
+            }
+        }
+
+        // Generate CSV function
+        function generateCSV(data) {
+            const header = Object.keys(data[0]).join(',');
+            const rows = data.map(item => Object.values(item).join(','));
+            const csvContent = [header, ...rows].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'report.csv';
+            link.click();
+        }
+
+        // Generate Excel function
+        function generateExcel(data) {
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Members');
+            XLSX.writeFile(wb, 'members-report.xlsx');
+        }
+
+        // Generate PDF function
+        function generatePDF(data) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            let yPosition = 10;
+            data.forEach(member => {
+                doc.text(`Name: ${member.name}`, 10, yPosition);
+                yPosition += 10;
+                doc.text(`Membership Type: ${member.membershipType}`, 10, yPosition);
+                yPosition += 10;
+                doc.text(`Email: ${member.email}`, 10, yPosition);
+                yPosition += 10;
+                doc.text(`Phone: ${member.phone}`, 10, yPosition);
+                yPosition += 20;
+            });
+
+            doc.save('members-report.pdf');
+        }
+
+        // Event listener for the page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Page loaded, initializing member display...');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supplement Store - Purchase</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2 {
+            text-align: center;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+
+        #receipt {
+            margin-top: 20px;
+            font-weight: bold;
+            color: green;
+        }
+
+        #errorMessage {
+            color: red;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .logout-btn {
+            background-color: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .logout-btn:hover {
+            background-color: #cc0000;
+        }
+
+        #loginContainer {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Container -->
+    <div id="loginContainer" class="container">
+        <h2>Login to Purchase Supplements</h2>
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Password" required>
+        <button onclick="login()">Login</button>
+        <div id="errorMessage"></div>
+    </div>
+
+    <!-- Main Purchase Container -->
+    <div id="mainContainer" class="container hidden">
+        <button class="logout-btn" onclick="logout()">Logout</button>
+        <h1>Supplement Purchase</h1>
+
+        <!-- Customer Details Form -->
+        <form id="purchaseForm">
+            <label for="name">Customer Name:</label>
+            <input type="text" id="name" placeholder="Enter your name" required>
+
+            <label for="contact">Contact Number:</label>
+            <input type="text" id="contact" placeholder="Enter your contact number" required>
+
+            <label for="supplement">Supplement Name:</label>
+            <select id="supplement" required onchange="updatePrice()">
+                <option value="Whey Protein" data-price="2000">Whey Protein</option>
+                <option value="Creatine" data-price="1500">Creatine</option>
+                <option value="BCAA" data-price="1200">BCAA</option>
+            </select>
+
+            <label for="quantity">Quantity:</label>
+            <input type="number" id="quantity" placeholder="Enter quantity" required min="1" onchange="updatePrice()">
+
+            <label for="price">Price per Unit (₹):</label>
+            <input type="number" id="price" placeholder="Price per unit" readonly>
+
+            <label for="totalPrice">Total Price (₹):</label>
+            <input type="number" id="totalPrice" readonly>
+
+            <button type="submit">Submit Purchase</button>
+        </form>
+
+        <div id="receipt"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyATniSLhkB362WSXSSHLA-GIL86NGLw3Uw",
+            authDomain: "kd-fitness-81a25.firebaseapp.com",
+            projectId: "kd-fitness-81a25",
+            storageBucket: "kd-fitness-81a25.firebasestorage.app",
+            messagingSenderId: "670008631411",
+            appId: "1:670008631411:web:e98b9fc9a494aa104c8a06",
+            measurementId: "G-T5Y9E7R073"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const auth = firebase.auth();
+
+        // Authentication state observer
+        auth.onAuthStateChanged((user) => {
+            const loginContainer = document.getElementById('loginContainer');
+            const mainContainer = document.getElementById('mainContainer');
+            const errorMessage = document.getElementById('errorMessage');
+
+            if (user) {
+                // User is signed in
+                loginContainer.classList.add('hidden');
+                mainContainer.classList.remove('hidden');
+                errorMessage.textContent = '';
+                updatePrice(); // Initialize prices
+            } else {
+                // User is signed out
+                loginContainer.classList.remove('hidden');
+                mainContainer.classList.add('hidden');
+                document.getElementById('purchaseForm').reset();
+                document.getElementById('receipt').innerHTML = '';
+            }
+        });
+
+        // Login function
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('errorMessage');
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+            } catch (error) {
+                errorMessage.textContent = error.message;
+            }
+        }
+
+        // Logout function
+        function logout() {
+            auth.signOut();
+        }
+
+        // Update price calculations
+        function updatePrice() {
+            const supplement = document.getElementById('supplement');
+            const quantity = document.getElementById('quantity').value || 1;
+            const pricePerUnit = supplement.options[supplement.selectedIndex].dataset.price;
+            
+            document.getElementById('price').value = pricePerUnit;
+            document.getElementById('totalPrice').value = pricePerUnit * quantity;
+        }
+
+        // Form submit handler
+        document.getElementById('purchaseForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            if (!auth.currentUser) {
+                alert('Please login to make a purchase');
+                return;
+            }
+
+            // Get customer data from form
+            const customerName = document.getElementById('name').value;
+            const contactNumber = document.getElementById('contact').value;
+            const supplementName = document.getElementById('supplement').value;
+            const quantity = document.getElementById('quantity').value;
+            const pricePerUnit = document.getElementById('price').value;
+            const totalPrice = document.getElementById('totalPrice').value;
+            const email = auth.currentUser.email; // Add email for later reference
+
+            // Store the data in Realtime Database
+            const purchaseData = {
+                userId: auth.currentUser.uid,
+                email: email,
+                customerName: customerName,
+                contactNumber: contactNumber,
+                supplementName: supplementName,
+                quantity: quantity,
+                pricePerUnit: pricePerUnit,
+                totalPrice: totalPrice,
+                timestamp: new Date().toISOString()
+            };
+
+            db.ref('users/admin/supplements').push(purchaseData)
+                .then(() => {
+                    console.log("Purchase recorded successfully!");
+                    document.getElementById('receipt').innerHTML = `
+                        <h3>Purchase Receipt</h3>
+                        Name: ${customerName}<br>
+                        Contact: ${contactNumber}<br>
+                        Supplement: ${supplementName}<br>
+                        Quantity: ${quantity}<br>
+                        Price Per Unit: ₹${pricePerUnit}<br>
+                        Total Price: ₹${totalPrice}<br>
+                        Your receipt has been saved.`;
+                    
+                    // Reset form
+                    document.getElementById('purchaseForm').reset();
+                    updatePrice();
+                })
+                .catch((error) => {
+                    console.error("Error submitting purchase: ", error);
+                    document.getElementById('receipt').innerHTML = "Error submitting purchase. Please try again.";
+                });
+        });
+
+        // Initialize price on page load
+        window.onload = function() {
+            updatePrice();
+        };
+    </script>
+</body>
+</html>

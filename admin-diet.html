@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assign Diet Plan</title>
+  <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f4;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: white;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-top: 50px;
+      }
+      h1 {
+        text-align: center;
+      }
+      input, button {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+      }
+      input:focus, button:focus {
+        outline: none;
+        border-color: #0056b3;
+      }
+      #searchResults div {
+        padding: 5px;
+        cursor: pointer;
+        background-color: #f9f9f9;
+        margin-top: 5px;
+      }
+      #searchResults div:hover {
+        background-color: #ddd;
+      }
+      #memberDetails p {
+        font-size: 16px;
+      }
+      #message {
+        text-align: center;
+        font-size: 16px;
+        margin-top: 20px;
+      }
+      .success {
+        color: green;
+      }
+      .error {
+        color: red;
+      }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+  <script>
+    // Initialize Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyATniSLhkB362WSXSSHLA-GIL86NGLw3Uw",
+        authDomain: "kd-fitness-81a25.firebaseapp.com",
+        projectId: "kd-fitness-81a25",
+        storageBucket: "kd-fitness-81a25.firebasestorage.app",
+        messagingSenderId: "670008631411",
+        appId: "1:670008631411:web:e98b9fc9a494aa104c8a06",
+        measurementId: "G-T5Y9E7R073"
+    };
+
+    const app = firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const database = firebase.database();
+
+    // Search member function
+    function searchMember() {
+      const memberName = document.getElementById('searchMember').value;
+      const searchResultsDiv = document.getElementById('searchResults');
+
+      if (memberName.length >= 3) {
+        database.ref('users/admin/gym-members')
+          .orderByChild('name')
+          .startAt(memberName)
+          .endAt(memberName + '\uf8ff')
+          .once('value')
+          .then(snapshot => {
+            searchResultsDiv.innerHTML = '';
+            snapshot.forEach(childSnapshot => {
+              const member = childSnapshot.val();
+              const resultDiv = document.createElement('div');
+              resultDiv.textContent = member.name;
+              resultDiv.onclick = () => showMemberDetails(childSnapshot.key);
+              searchResultsDiv.appendChild(resultDiv);
+            });
+          })
+          .catch(error => console.error('Error fetching members:', error));
+      }
+    }
+
+    // Show member details
+    function showMemberDetails(memberId) {
+      database.ref('users/admin/gym-members/' + memberId).once('value')
+        .then(snapshot => {
+          const member = snapshot.val();
+          document.getElementById('memberName').textContent = member.name;
+          document.getElementById('memberPhone').textContent = member.phone;
+          document.getElementById('searchResults').innerHTML = '';
+          document.getElementById('searchMember').value = member.name;
+        });
+    }
+
+    // Assign diet plan
+    function assignDietPlan() {
+      const user = auth.currentUser;
+
+      if (user) {
+        // Get member details
+        const memberName = document.getElementById('memberName').textContent;
+        const memberPhone = document.getElementById('memberPhone').textContent;
+
+        // Search for the member email based on the member name
+        database.ref('users/admin/gym-members')
+          .orderByChild('name')
+          .equalTo(memberName)
+          .once('value')
+          .then(snapshot => {
+            if (snapshot.exists()) {
+              snapshot.forEach(childSnapshot => {
+                const member = childSnapshot.val();
+                const memberEmail = member.email; // Get the email of the selected member
+
+                const dietData = {
+                  breakfast: document.getElementById('breakfast').value,
+                  lunch: document.getElementById('lunch').value,
+                  snacks: document.getElementById('snacks').value,
+                  dinner: document.getElementById('dinner').value,
+                  name: memberName,  // Include member's name
+                  phone: memberPhone,  // Include member's phone number
+                  userEmail: memberEmail,  // Include member's email
+                };
+
+                // Use member's email to store diet data under users/admin/diet
+                const dietPlanRef = database.ref('users/admin/diet').push();
+
+                // Push the diet plan data
+                dietPlanRef.set(dietData)
+                  .then(() => {
+                    // Display success message and clear form on alert OK
+                    alert('Diet plan assigned successfully!');
+                    clearForm();  // Clear the form fields
+                  })
+                  .catch((error) => {
+                    console.error("Error assigning diet plan: ", error);
+                    document.getElementById('message').textContent = 'Error assigning diet plan.';
+                  });
+              });
+            } else {
+              document.getElementById('message').textContent = 'Member not found.';
+            }
+          })
+          .catch(error => {
+            console.error("Error fetching member email: ", error);
+            document.getElementById('message').textContent = 'Error fetching member email.';
+          });
+      } else {
+        document.getElementById('message').textContent = 'You need to log in to assign a diet plan.';
+      }
+    }
+
+    // Function to clear form data
+    function clearForm() {
+      document.getElementById('breakfast').value = '';
+      document.getElementById('lunch').value = '';
+      document.getElementById('snacks').value = '';
+      document.getElementById('dinner').value = '';
+      document.getElementById('searchMember').value = '';
+      document.getElementById('memberName').textContent = '';
+      document.getElementById('memberPhone').textContent = '';
+      document.getElementById('message').textContent = ''; // Clear message if any
+    }
+
+    // Automatically fetch diet plan when the user is logged in
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        fetchDietPlan();  // Fetch diet plan if user is logged in
+      }
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h1>Assign Diet Plan</h1>
+    <div>
+      <input type="text" id="searchMember" placeholder="Search for a member" oninput="searchMember()">
+      <div id="searchResults"></div>
+    </div>
+
+    <!-- Member Details -->
+    <div id="memberDetails">
+      <p><strong>Member Name:</strong> <span id="memberName"></span></p>
+      <p><strong>Phone:</strong> <span id="memberPhone"></span></p>
+    </div>
+
+    <!-- Diet Plan Details -->
+    <div>
+      <label for="breakfast">Breakfast:</label>
+      <input type="text" id="breakfast" placeholder="Enter breakfast">
+    </div>
+    <div>
+      <label for="lunch">Lunch:</label>
+      <input type="text" id="lunch" placeholder="Enter lunch">
+    </div>
+    <div>
+      <label for="snacks">Snacks:</label>
+      <input type="text" id="snacks" placeholder="Enter snacks">
+    </div>
+    <div>
+      <label for="dinner">Dinner:</label>
+      <input type="text" id="dinner" placeholder="Enter dinner">
+    </div>
+
+    <button onclick="assignDietPlan()">Assign Diet Plan</button>
+    <p id="message"></p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assign Fee Package</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+
+        #searchResults {
+            margin-top: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        #searchResults div {
+            padding: 8px;
+            background-color: #f1f1f1;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+
+        #searchResults div:hover {
+            background-color: #ddd;
+        }
+
+        #message {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .error {
+            color: red;
+        }
+
+        #memberDetails {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f8f8;
+            border-radius: 5px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Assign Fee Package</h1>
+
+        <!-- Search for member -->
+        <div>
+            <input type="text" id="searchMember" placeholder="Search for a member" oninput="searchMember()">
+            <div id="searchResults"></div>
+            <div id="searchLoading" class="loading">Searching...</div>
+        </div>
+
+        <!-- Autofilled member details -->
+        <div id="memberDetails">
+            <p><strong>Member Name:</strong> <span id="memberName"></span></p>
+            <p><strong>Phone:</strong> <span id="memberPhone"></span></p>
+            <p><strong>Joining Date:</strong> <span id="joiningDate"></span></p>
+            <p><strong>Address:</strong> <span id="memberAddress"></span></p>
+        </div>
+
+        <!-- Fee Package assignment -->
+        <div>
+            <label for="feePackage">Fee Package:</label>
+            <select id="feePackage" onchange="updateFeeAmount()">
+                <option value="Monthly">Monthly</option>
+                <option value="Quarterly">Quarterly</option>
+                <option value="Annual">Annual</option>
+            </select>
+        </div>
+        
+        <div>
+            <label for="feeAmount">Fee Amount (₹):</label>
+            <input type="number" id="feeAmount" readonly>
+        </div>
+
+        <button onclick="assignFeePackage()">Assign Package</button>
+        <p id="message"></p>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+
+    <!-- Firebase SDKs -->
+
+    <script>
+        // Initialize Firebase if not already initialized
+        const firebaseConfig = {
+            apiKey: "AIzaSyATniSLhkB362WSXSSHLA-GIL86NGLw3Uw",
+            authDomain: "kd-fitness-81a25.firebaseapp.com",
+            projectId: "kd-fitness-81a25",
+            databaseURL: "https://kd-fitness-81a25-default-rtdb.firebaseio.com",
+            storageBucket: "kd-fitness-81a25.appspot.com",
+            messagingSenderId: "670008631411",
+            appId: "1:670008631411:web:e98b9fc9a494aa104c8a06",
+            measurementId: "G-T5Y9E7R073"
+        };
+    
+        // Check if Firebase is already initialized
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+    
+        const database = firebase.database();
+        const auth = firebase.auth();
+        let searchTimeout = null;
+        let isAdmin = false;
+    
+        // Function to check if user is admin
+        async function checkAdminStatus(uid) {
+            try {
+                const adminSnapshot = await database.ref(`users/admin/${uid}`).once('value');
+                return adminSnapshot.exists() && adminSnapshot.val().role === 'admin';
+            } catch (error) {
+                console.error("Error checking admin status:", error);
+                return false;
+            }
+        }
+    
+        // Define searchMember in global scope
+        window.searchMember = async function() {
+            if (!auth.currentUser || !isAdmin) {
+                const messageElement = document.getElementById('message');
+                messageElement.textContent = "You must be logged in as an admin to perform this action";
+                messageElement.className = 'error';
+                return;
+            }
+    
+            const searchInput = document.getElementById('searchMember');
+            const query = searchInput.value.toLowerCase().trim();
+            const resultsDiv = document.getElementById('searchResults');
+            const loadingDiv = document.getElementById('searchLoading');
+    
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            resultsDiv.innerHTML = "";
+    
+            if (query.length < 3) {
+                loadingDiv.style.display = 'none';
+                return;
+            }
+    
+            loadingDiv.style.display = 'block';
+    
+            try {
+                const searchRef = database.ref('users/admin/gym-members')
+                    .orderByChild('nameLower')  // Assuming you have a lowercase name field for case-insensitive search
+                    .startAt(query)
+                    .endAt(query + '\uf8ff')
+                    .limitToFirst(5);
+    
+                const snapshot = await searchRef.once('value');
+                resultsDiv.innerHTML = "";
+                let found = false;
+    
+                snapshot.forEach((childSnapshot) => {
+                    found = true;
+                    const member = childSnapshot.val();
+                    const div = document.createElement('div');
+                    div.textContent = member.name;
+                    div.onclick = () => {
+                        autofillMemberDetails(childSnapshot.key, member);
+                        resultsDiv.innerHTML = "";
+                        searchInput.value = member.name;
+                    };
+                    resultsDiv.appendChild(div);
+                });
+    
+                if (!found) {
+                    resultsDiv.innerHTML = "<div style='cursor:default'>No members found</div>";
+                }
+            } catch (error) {
+                console.error("Error searching members:", error);
+                resultsDiv.innerHTML = "<div style='cursor:default'>Error searching members. Please ensure you have proper permissions.</div>";
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        };
+    
+        // Define autofillMemberDetails in global scope
+        function autofillMemberDetails(memberId, member) {
+            document.getElementById('memberName').textContent = member.name || '';
+            document.getElementById('memberPhone').textContent = member.phone || '';
+            document.getElementById('joiningDate').textContent = member.joiningDate || '';
+            document.getElementById('memberAddress').textContent = member.address || '';
+            
+            updateFeeAmount();
+            sessionStorage.setItem('memberId', memberId);
+        }
+    
+        // Define updateFeeAmount in global scope
+        function updateFeeAmount() {
+            const feePackage = document.getElementById('feePackage').value;
+            let feeAmount = 0;
+    
+            switch(feePackage) {
+                case "Monthly":
+                    feeAmount = 1000;
+                    break;
+                case "Quarterly":
+                    feeAmount = 2500;
+                    break;
+                case "Annual":
+                    feeAmount = 9000;
+                    break;
+            }
+            
+            document.getElementById('feeAmount').value = feeAmount;
+        }
+    
+        // Define assignFeePackage in global scope
+        window.assignFeePackage = async function() {
+            if (!auth.currentUser || !isAdmin) {
+                const messageElement = document.getElementById('message');
+                messageElement.textContent = "You must be logged in as an admin to perform this action";
+                messageElement.className = 'error';
+                return;
+            }
+    
+            const memberId = sessionStorage.getItem('memberId');
+            const feePackage = document.getElementById('feePackage').value;
+            const feeAmount = document.getElementById('feeAmount').value;
+            const messageElement = document.getElementById('message');
+            
+            if (!memberId) {
+                messageElement.textContent = "Please select a member first!";
+                messageElement.className = 'error';
+                return;
+            }
+    
+            const packageData = {
+                assignedPackage: feePackage,
+                feeAmount: Number(feeAmount),
+                dateAssigned: new Date().toISOString(),
+                assignedBy: auth.currentUser.uid
+            };
+    
+            const updates = {};
+            updates[`users/admin/assigned-packages/${memberId}`] = packageData;
+            updates[`users/admin/gym-members/${memberId}/currentPackage`] = feePackage;
+            updates[`users/admin/gym-members/${memberId}/currentFeeAmount`] = Number(feeAmount);
+            updates[`users/admin/gym-members/${memberId}/lastPackageUpdate`] = new Date().toISOString();
+    
+            try {
+                await database.ref().update(updates);
+                messageElement.textContent = `Package "${feePackage}" assigned successfully. Fee: ₹${feeAmount}`;
+                messageElement.className = 'success';
+                
+                // Clear form
+                document.getElementById('searchMember').value = '';
+                document.getElementById('memberName').textContent = '';
+                document.getElementById('memberPhone').textContent = '';
+                document.getElementById('joiningDate').textContent = '';
+                document.getElementById('memberAddress').textContent = '';
+                sessionStorage.removeItem('memberId');
+            } catch (error) {
+                console.error("Error assigning package:", error);
+                messageElement.textContent = "Error assigning fee package. Please ensure you have proper permissions.";
+                messageElement.className = 'error';
+            }
+        };
+    
+        // Wait for auth state to be ready and check admin status
+        auth.onAuthStateChanged(async (user) => {
+            const messageElement = document.getElementById('message');
+            if (user) {
+                // Check if user is admin
+                isAdmin = await checkAdminStatus(user.uid);
+                if (isAdmin) {
+                    console.log("Admin user signed in");
+                    updateFeeAmount(); // Initialize the page with default values
+                    messageElement.textContent = "Welcome, Admin!";
+                    messageElement.className = 'success';
+                } else {
+                    console.log("Non-admin user signed in");
+                    messageElement.textContent = "You must be an admin to use this page";
+                    messageElement.className = 'error';
+                }
+            } else {
+                console.log("No user signed in");
+                isAdmin = false;
+                messageElement.textContent = "Please sign in with an admin account";
+                messageElement.className = 'error';
+            }
+        });
+    </script>
+</body>
+</html>

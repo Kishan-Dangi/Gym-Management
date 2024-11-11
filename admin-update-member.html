@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Members</title>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyATniSLhkB362WSXSSHLA-GIL86NGLw3Uw",
+            authDomain: "kd-fitness-81a25.firebaseapp.com",
+            databaseURL: "https://kd-fitness-81a25-default-rtdb.firebaseio.com",
+            projectId: "kd-fitness-81a25",
+            storageBucket: "kd-fitness-81a25.appspot.com",
+            messagingSenderId: "670008631411",
+            appId: "1:670008631411:web:e98b9fc9a494aa104c8a06",
+            measurementId: "G-T5Y9E7R073"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+    </script>
+
+    <style>
+        /* Styling for the manage members page */
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; }
+        .container { max-width: 800px; margin: 20px auto; padding: 20px; background: #fff; border-radius: 8px; }
+        .card { padding: 15px; border: 1px solid #ddd; margin-bottom: 10px; border-radius: 5px; }
+        .actions { display: flex; justify-content: space-between; }
+        .button { padding: 8px 15px; cursor: pointer; border: none; border-radius: 4px; }
+        .update-btn { background-color: #4CAF50; color: #fff; }
+        .delete-btn { background-color: #f44336; color: #fff; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); align-items: center; justify-content: center; }
+        .modal-content { background: #fff; padding: 20px; border-radius: 8px; width: 80%; max-width: 400px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Manage Members</h2>
+        <div id="membersList"></div>
+    </div>
+
+    <!-- Update Member Modal -->
+    <div id="updateModal" class="modal">
+        <div class="modal-content">
+            <h3>Update Member Details</h3>
+            <input type="text" id="updateName" placeholder="Full Name">
+            <input type="text" id="updatePhone" placeholder="Phone Number">
+            <input type="text" id="updateAddress" placeholder="Address">
+            <button onclick="saveMemberUpdates()">Save Changes</button>
+            <button onclick="closeModal()">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        const updateModal = document.getElementById('updateModal');
+        let selectedMemberId = null;
+
+        // Function to load members from Realtime Database
+        function loadMembers() {
+            db.ref("users/admin/gym-members").once('value', (snapshot) => {
+                let membersHTML = '';
+                snapshot.forEach((childSnapshot) => {
+                    const member = childSnapshot.val();
+                    const memberId = childSnapshot.key;
+
+                    membersHTML += `
+                        <div class="card">
+                            <h4>${member.name}</h4>
+                            <p>Phone: ${member.phone}</p>
+                            <p>Address: ${member.address}</p>
+                            <div class="actions">
+                                <button class="button update-btn" onclick="openUpdateModal('${memberId}', '${member.name}', '${member.phone}', '${member.address}')">Update</button>
+                                <button class="button delete-btn" onclick="deleteMember('${memberId}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                document.getElementById('membersList').innerHTML = membersHTML;
+            });
+        }
+
+        // Open Update Modal with existing data
+        function openUpdateModal(id, name, phone, address) {
+            selectedMemberId = id;
+            document.getElementById('updateName').value = name;
+            document.getElementById('updatePhone').value = phone;
+            document.getElementById('updateAddress').value = address;
+            updateModal.style.display = 'flex';
+        }
+
+        // Close Modal
+        function closeModal() {
+            updateModal.style.display = 'none';
+        }
+
+        // Save updates to Realtime Database
+        function saveMemberUpdates() {
+            const updatedName = document.getElementById('updateName').value;
+            const updatedPhone = document.getElementById('updatePhone').value;
+            const updatedAddress = document.getElementById('updateAddress').value;
+
+            db.ref("users/admin/gym-members/" + selectedMemberId).update({
+                name: updatedName,
+                phone: updatedPhone,
+                address: updatedAddress
+            }).then(() => {
+                alert("Member updated successfully!");
+                closeModal();
+                loadMembers();
+            }).catch((error) => {
+                console.error("Error updating member: ", error);
+                alert("Error updating member. Please try again.");
+            });
+        }
+
+        // Delete member function
+        function deleteMember(id) {
+            db.ref("users/admin/gym-members/" + id).remove().then(() => {
+                alert("Member deleted successfully!");
+                loadMembers();
+            }).catch((error) => {
+                console.error("Error deleting member: ", error);
+                alert("Error deleting member. Please try again.");
+            });
+        }
+
+        // Load members when page is ready
+        window.onload = loadMembers;
+    </script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1 id="welcomeMessage">Welcome to Your Dashboard</h1>
+        <p id="userEmail"></p> <!-- Display logged-in email -->
+        <div id="bills"></div>
+        <div id="diet"></div>
+        <div id="notifications"></div>
+        <div id="supplements"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyATniSLhkB362WSXSSHLA-GIL86NGLw3Uw",
+            authDomain: "kd-fitness-81a25.firebaseapp.com",
+            databaseURL: "https://kd-fitness-81a25-default-rtdb.firebaseio.com",
+            projectId: "kd-fitness-81a25",
+            storageBucket: "kd-fitness-81a25.firebasestorage.app",
+            messagingSenderId: "670008631411",
+            appId: "1:670008631411:web:e98b9fc9a494aa104c8a06",
+            measurementId: "G-T5Y9E7R073"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        // Check if user is logged in
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // Get logged-in user's email
+                const userEmail = user.email;
+                document.getElementById('userEmail').textContent = `Logged in as: ${userEmail}`; // Show logged-in email
+
+                // Display the welcome message
+                document.getElementById('welcomeMessage').textContent = `Welcome, ${userEmail}!`;
+
+                // Query different sections and display data
+                getBillsData(userEmail);
+                getDietData(userEmail);
+                getNotificationsData(userEmail);
+                getSupplementsData(userEmail);
+
+            } else {
+                // If no user is logged in, redirect to login page
+                window.location.href = 'login.html';
+            }
+        });
+
+        // Function to fetch and display bills data
+        function getBillsData(email) {
+            const billsRef = database.ref('users/admin/created-bills');
+            billsRef.once('value', snapshot => {
+                const billsContainer = document.getElementById('bills');
+                billsContainer.innerHTML = "<h3>My Bills</h3>";
+
+                let found = false; // Track if any data is found
+
+                snapshot.forEach(childSnapshot => {
+                    const bill = childSnapshot.val();
+                    console.log("Checking bill email:", bill.memberEmail); // Debugging log
+                    if (bill.memberEmail === email) {
+                        found = true;
+                        const billElement = document.createElement('div');
+                        billElement.textContent = `Bill for ${bill.memberEmail}: Amount - ${bill.amount}`;
+                        billsContainer.appendChild(billElement);
+                    }
+                });
+
+                if (!found) {
+                    billsContainer.innerHTML += "<p>No bills found.</p>";
+                }
+            });
+        }
+
+        // Function to fetch and display diet data
+        function getDietData(email) {
+            const dietRef = database.ref('users/admin/diet');
+            dietRef.once('value', snapshot => {
+                const dietContainer = document.getElementById('diet');
+                dietContainer.innerHTML = "<h3>My Diet</h3>";
+
+                let found = false; // Track if any data is found
+
+                snapshot.forEach(childSnapshot => {
+                    const diet = childSnapshot.val();
+                    console.log("Checking diet email:", diet.userEmail); // Debugging log
+                    if (diet.userEmail === email) {
+                        found = true;
+                        const dietElement = document.createElement('div');
+                        dietElement.textContent = `Diet for ${diet.userEmail}: ${diet.meal}`;
+                        dietContainer.appendChild(dietElement);
+                    }
+                });
+
+                if (!found) {
+                    dietContainer.innerHTML += "<p>No diet found.</p>";
+                }
+            });
+        }
+
+        // Function to fetch and display notifications data
+        function getNotificationsData(email) {
+            const notificationsRef = database.ref('users/admin/notifications-sent');
+            notificationsRef.once('value', snapshot => {
+                const notificationsContainer = document.getElementById('notifications');
+                notificationsContainer.innerHTML = "<h3>My Notifications</h3>";
+
+                let found = false; // Track if any data is found
+
+                snapshot.forEach(childSnapshot => {
+                    const notification = childSnapshot.val();
+                    console.log("Checking notification email:", notification.email); // Debugging log
+                    if (notification.email === email) {
+                        found = true;
+                        const notificationElement = document.createElement('div');
+                        notificationElement.textContent = `Notification for ${notification.email}: ${notification.message}`;
+                        notificationsContainer.appendChild(notificationElement);
+                    }
+                });
+
+                if (!found) {
+                    notificationsContainer.innerHTML += "<p>No notifications found.</p>";
+                }
+            });
+        }
+
+        // Function to fetch and display supplements data
+        function getSupplementsData(email) {
+            const supplementsRef = database.ref('users/admin/supplements');
+            supplementsRef.once('value', snapshot => {
+                const supplementsContainer = document.getElementById('supplements');
+                supplementsContainer.innerHTML = "<h3>My Supplements</h3>";
+
+                let found = false; // Track if any data is found
+
+                snapshot.forEach(childSnapshot => {
+                    const supplement = childSnapshot.val();
+                    console.log("Checking supplement email:", supplement.email); // Debugging log
+                    if (supplement.email === email) {
+                        found = true;
+                        const supplementElement = document.createElement('div');
+                        supplementElement.textContent = `Supplement for ${supplement.email}: ${supplement.supplementName} - Quantity: ${supplement.quantity}`;
+                        supplementsContainer.appendChild(supplementElement);
+                    }
+                });
+
+                if (!found) {
+                    supplementsContainer.innerHTML += "<p>No supplements found.</p>";
+                }
+            });
+        }
+    </script>
+</body>
+</html>
